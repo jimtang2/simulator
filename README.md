@@ -12,81 +12,14 @@ Useful for generating realistic event streams (e.g. for load testing, observabil
 - Supports single-turn, multi-turn, and continuous simulation
 - Optional OTLP receiver endpoint for telemetry export
 
-## Installation
-
-```bash
-go get github.com/jimtang2/simulator
-```
-
-(For local development with the companion `simulator-actions` package, use a `go.work` file or a `replace` directive.)
-
-## Quick Start
+## Usage
 
 ```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"time"
-
-	"github.com/jimtang2/simulator"
-	// blank-import extra actions if desired
-	// _ "github.com/jimtang2/simulator-actions/cex"
-)
-
-func main() {
-	s, err := simulator.NewSimulator("config.yaml")
-	if err != nil {
-		panic(err)
-	}
-
-	out := make(chan simulator.Event, 1024)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	go func() {
-		for e := range out {
-			fmt.Println(e)
-		}
-	}()
-
-	// Run continuously until context is cancelled
-	errCh := make(chan error, 1)
-	go s.Continuous(ctx, out, errCh)
-
-	<-ctx.Done()
-	fmt.Println("simulation finished")
-}
+import "github.com/jimtang2/simulator"
 ```
 
-### Minimal config.yaml
-
-```yaml
-action_per_turn: 100
-time_between_turn: 50          # ms
-
-players:
-  count: 1000
-  init_states:
-    - name: brand_new
-      weight: 30
-      state:
-        onboarded: false
-        logged_in: false
-    - name: active
-      weight: 70
-      state:
-        onboarded: true
-        logged_in: true
-
-actions:
-  onboarding:
-    weight: 10
-  login:
-    weight: 30
-  logout:
-    weight: 20
+```bash
+go mod tidy
 ```
 
 ## Core Concepts
@@ -198,6 +131,75 @@ sequenceDiagram
 
 Built-in actions: `onboarding`, `login`, `logout`.  
 Additional actions can be registered with `simulator.AddAction(...)` or via blank imports from companion packages.
+
+## Quick Start
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/jimtang2/simulator"
+	// blank-import extra actions if desired
+	// _ "github.com/jimtang2/simulator-actions/cex"
+)
+
+func main() {
+	s, err := simulator.NewSimulator("config.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	out := make(chan simulator.Event, 1024)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	go func() {
+		for e := range out {
+			fmt.Println(e)
+		}
+	}()
+
+	// Run continuously until context is cancelled
+	errCh := make(chan error, 1)
+	go s.Continuous(ctx, out, errCh)
+
+	<-ctx.Done()
+	fmt.Println("simulation finished")
+}
+```
+
+### Minimal config.yaml
+
+```yaml
+action_per_turn: 100
+time_between_turn: 50          # ms
+
+players:
+  count: 1000
+  init_states:
+    - name: brand_new
+      weight: 30
+      state:
+        onboarded: false
+        logged_in: false
+    - name: active
+      weight: 70
+      state:
+        onboarded: true
+        logged_in: true
+
+actions:
+  onboarding:
+    weight: 10
+  login:
+    weight: 30
+  logout:
+    weight: 20
+```
 
 ## API Summary
 
