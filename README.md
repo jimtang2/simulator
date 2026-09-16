@@ -91,12 +91,110 @@ actions:
 
 ## Core Concepts
 
-| Concept       | Description |
-|---------------|-------------|
-| **Player**    | Holds an ID and a mutable `map[string]any` state. |
-| **Action**    | Implements `Name()`, `Condition()`, `Exec()`, `Attributes()`. |
-| **Simulator** | Owns players, config, and the current turn counter. |
-| **Event**     | Emitted after a successful action: turn, action name, player ID, attributes. |
+#### Class Diagram: Structure and Ownership
+
+```mermaid
+classDiagram
+    class Simulator {
+        -Config cfg
+        -[]Player players
+        -int64 turn
+        +NewSimulator(configPath) Simulator
+        +NextTurn(ctx, out) error
+        +NextNTurn(n, out) error
+        +Continuous(ctx, out, errCh)
+        +Now() int64
+    }
+
+    class Config {
+        +int ActionPerTurn
+        +int TimeBetweenTurn
+        +string OTLPReceiverEndpoint
+        +map[string]ActionConfig Actions
+        +PlayersConfig Players
+    }
+
+    class Player {
+        -int id
+        -map[string]any state
+        +State(key) any
+        +StateBool(key) bool
+        +StateString(key) string
+        +StateInt(key) int
+        +SetState(key, value)
+    }
+
+    class Action {
+        <<interface>>
+        +Name() string
+        +Condition(Player, Simulator) bool
+        +Exec(Player, Simulator) error
+        +Attributes(Player, Simulator) map[string]any
+    }
+
+    class Event {
+        +int64 Turn
+        +string ActionName
+        +int PlayerID
+        +map[string]any Attributes
+    }
+
+    class ActionConfig {
+        +int Weight
+    }
+
+    class PlayersConfig {
+        +int Count
+        +[]StateConfig InitStates
+    }
+
+    Simulator *-- Config : owns
+    Simulator *-- Player : manages many
+    Config *-- ActionConfig : weights named actions
+    Config *-- PlayersConfig : player population setup
+    Simulator ..> Action : selects and executes
+    Action ..> Player : reads and mutates state
+    Action ..> Simulator : evaluates context
+    Simulator ..> Event : emits after success
+    Event ..> Action : records name
+    Event ..> Player : records ID
+```
+
+#### Sequence Diagram: One Simulated Action
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Config
+    participant S as Simulator
+    participant P as Player
+    participant A as Action
+    participant E as Event
+    participant O as Output channel / OTLP pipeline
+
+    Note over C,S: NewSimulator loads Config and creates Players
+    C-->>S: ActionPerTurn, TimeBetweenTurn, action weights, initial states
+    S->>P: Initialize players from configured states
+
+    loop Each turn / action slot
+        S->>S: Select random Player and Action
+        S->>S: Apply configured Action weight
+        S->>A: Condition(P, S)
+        alt Condition is false
+            A-->>S: Skip action
+        else Condition is true
+            S->>A: Exec(P, S)
+            A->>P: Read/update mutable state
+            P-->>A: Updated state
+            A-->>S: Success
+            S->>A: Attributes(P, S)
+            A-->>S: Event attributes
+            S->>E: NewEvent(P, A, S)
+            E-->>S: Turn, ActionName, PlayerID, Attributes
+            S->>O: Emit Event
+        end
+    end
+```
 
 Built-in actions: `onboarding`, `login`, `logout`.  
 Additional actions can be registered with `simulator.AddAction(...)` or via blank imports from companion packages.
