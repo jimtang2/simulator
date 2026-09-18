@@ -1,7 +1,5 @@
-verbose: true
 action_per_turn: 100
 time_between_turn: 50
-otlp_receiver_endpoint: http://localhost:4488/v1/logs
 
 players:
   count: 50000

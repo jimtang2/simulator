@@ -117,7 +117,3 @@ func (s *Simulator) weightForAction(ac Action) int {
 	acw := acc.Weight
 	return acw
 }
-
-func (s *Simulator) OTLPReceiverEndpoint() string {
-	return s.cfg.OTLPReceiverEndpoint
-}
